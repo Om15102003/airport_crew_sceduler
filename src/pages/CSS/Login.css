@@ -1,0 +1,132 @@
+.login-container {
+    min-height: 100vh;
+    width: 100vw;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.7)),
+                url('https://images.unsplash.com/photo-1436491865332-7a61a109cc05?ixlib=rb-4.0.3') no-repeat center center fixed;
+    background-size: cover;
+    padding: 20px;
+  }
+  
+  .login-card {
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    padding: 40px;
+    width: 100%;
+    max-width: 400px;
+  }
+  
+  .login-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  
+  .login-header h1 {
+    color: #1976d2;
+    font-size: 2rem;
+    font-weight: bold;
+    margin: 0 0 8px 0;
+  }
+  
+  .login-header p {
+    color: #666;
+    font-size: 1rem;
+    margin: 0;
+  }
+  
+  .login-form {
+    width: 100%;
+  }
+  
+  .form-group {
+    margin-bottom: 24px;
+  }
+  
+  .form-group input[type="email"],
+  .form-group input[type="password"] {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1rem;
+    background-color: white;
+  }
+  
+  .form-group input[type="email"]:focus,
+  .form-group input[type="password"]:focus {
+    outline: none;
+    border-color: #1976d2;
+    box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+  }
+  
+  .role-label {
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: #333;
+  }
+  
+  .radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .radio-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .radio-option input[type="radio"] {
+    margin: 0;
+  }
+  
+  .radio-option label {
+    color: #333;
+    font-size: 1rem;
+  }
+  
+  .login-button {
+    width: 100%;
+    padding: 14px;
+    background-color: #1976d2;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+    margin: 8px 0 16px 0;
+  }
+  
+  .login-button:hover {
+    background-color: #1565c0;
+    transform: translateY(-1px);
+  }
+  
+  .login-button:active {
+    transform: translateY(0);
+  }
+  
+  .forgot-password {
+    text-align: center;
+    color: #666;
+    font-size: 0.875rem;
+    margin: 0;
+  }
+  
+  /* Add responsiveness */
+  @media (max-width: 480px) {
+    .login-card {
+      padding: 24px;
+    }
+  
+    .login-header h1 {
+      font-size: 1.75rem;
+    }
+  }
