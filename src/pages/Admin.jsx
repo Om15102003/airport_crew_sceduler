@@ -24,13 +24,13 @@ const AdminDashboard = () => {
       {/* Navigation Bar */}
       <nav className="navbar">
         <div className="nav-brand">
-          <h2>Ground Crew Scheduler</h2>
+          <h2>{adminDetails.airline}</h2>
         </div>
         
         <div className="nav-links">
-          <a href="/dashboard" className="nav-link">Dashboard</a>
+          <a href={`/dashboard/${encodeURIComponent(adminDetails.airline)}`} className="nav-link">Dashboard</a>
           <a href="/schedule" className="nav-link">Schedule Management</a>
-          <a href="/crew" className="nav-link">Crew Members</a>
+          <a href={`/crew/${adminId}`} className="nav-link">Crew Members</a>
           <a href="/reports" className="nav-link">Reports</a>
           <a href="/settings" className="nav-link">Settings</a>
         </div>

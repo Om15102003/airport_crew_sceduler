@@ -141,7 +141,9 @@ app.get('/admin',async(req,res)=>{
 
 //api call to get all the details related to the flight of a particular airline for the admin
 app.get('/flights',async(req,res)=>{
-    const {airline}=req.query;
+    const airline=req.query.airline;
+    console.log(airline);
+    
     if(!airline){
         console.log("No query");
         return res.status(400).json({error:'Airline name is required'});
@@ -256,11 +258,9 @@ app.get('/crew-members', async (req, res) => {
                 cm.id, ca.date;
         `;
         const crewResult = await db.query(crewQuery, [airline]);
-
-        res.status(200).json({
-            message: 'Crew members retrieved successfully.',
-            crew_members: crewResult.rows,
-        });
+        res.setHeader('Content-Type', 'application/json'); // Explicitly set Content-Type
+        res.status(200).json(crewResult.rows);
+        
     } catch (error) {
         console.error('Error fetching crew members:', error);
         res.status(500).json({ error: 'Failed to fetch crew members.' });
