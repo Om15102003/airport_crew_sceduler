@@ -6,7 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Schedules from './pages/Schedules';
 import Employee from './pages/Employee';
 import Tasks from './pages/Tasks';
-import Report from './pages/Report';
+import NewFlight from './pages/NewFlight';
 import Login from './pages/Login';
 import Admin from './pages/Admin';
 import Crew from './pages/Crew';
@@ -26,7 +26,9 @@ function App() {
             <Route path="/schedule" element={<Schedules />} />
             <Route path="/employees" element={<Employee />} />
             <Route path="/tasks" element={<Tasks />} />
-            <Route path="/reports" element={<Report />} />
+            <Route path="/new_flight" element={<NewFlight />} >
+            <Route path=':airline' element={<NewFlight/>}/>
+            </Route>
             <Route path="/admin" element={<Admin/>}>
               <Route path=':adminId' element={<Admin/>}/>
             </Route>

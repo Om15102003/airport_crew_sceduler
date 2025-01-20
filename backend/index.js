@@ -293,6 +293,53 @@ app.get('/tasks/flight/:flight_id', async (req, res) => {
 });
 
 
+//API to get the report of past flights
+app.get('/flights/airline/:airline', async (req, res) => {
+    const { airline } = req.params;
+
+    try {
+        // Query to fetch flight data based on the airline
+        const flightQuery = `
+            SELECT 
+                id, 
+                report_date, 
+                on_time_departure, 
+                on_time_arrival, 
+                crew_satisfaction, 
+                customer_satisfaction
+            FROM flight_performance_report
+            WHERE airline = $1;
+        `;
+
+        // Execute the query with the provided airline parameter
+        const flights = await db.query(flightQuery, [airline]);
+
+        // Return the flight data to the client
+        res.status(200).json({ flights: flights.rows });
+    } catch (error) {
+        console.error('Error fetching flight data:', error);
+        res.status(500).json({ error: 'Failed to fetch flight data for the airline.' });
+    }
+});
+
+
+
+//API to fetch the recent activities related to a particular airlne
+app.get('/recent-activities/:airline_name',async (req,res)=>{
+    const {airline_name}=req.params;
+    try{
+        const activityQuery=`SELECT activity_id,airline_name, activity_description, activity_time FROM airline_recent_activities WHERE airline_name= $1 ORDER BY activity_time DESC`;
+        const activities=await db.query(activityQuery,[airline_name]);
+        if(activities.rows.length===0){
+            return res.status(404).json({message:'No activities found for this airline'});
+        }
+        res.status(200).json({recent_activities:activities.rows});
+    }catch(error){
+        console.error('Error fetching recent activities:',error);
+        res.status(500).json({error:'Failed to fetch recent activites'});      
+    }
+})
+
 // API to add task assignment for crew members
 app.post('/assign-tasks', async (req, res) => {
     const { crew_member_id, task_id } = req.body;
