@@ -36,7 +36,7 @@ const AdminDashboard = () => {
         
         <div className="nav-links">
           <a href={`/dashboard/${encodeURIComponent(adminDetails.airline)}`} className="nav-link">Dashboard</a>
-          <a href="/schedule" className="nav-link">Schedule Management</a>
+          <a href={`/schedule/${adminId}`} className="nav-link">Schedule Management</a>
           <a href={`/crew/${adminId}`} className="nav-link">Crew Members</a>
           <a href={`/new_flight/${encodeURIComponent(adminDetails.airline)}`} className="nav-link">New Flight</a>
           <a href="/settings" className="nav-link">Settings</a>

@@ -9,6 +9,11 @@ import env from "dotenv";
 import cors from "cors";
 import express from "express";
 import jwt from "jsonwebtoken";
+//import lpsolve from "linear-problem-solver";
+// const glpk = require('glpk.js');
+//const solver = require("javascript-lp-solver");
+import solver from "javascript-lp-solver"
+//import glpk from "glpk.js";
 env.config();
 
 
@@ -29,6 +34,80 @@ const db = new pg.Client({
     port: process.env.PG_PORT,
   });
 db.connect();
+
+
+
+
+
+// const model = {
+//     optimize: "profit",
+//     opType: "max",
+//     constraints: {
+//         resource1: { max: 20 },
+//         resource2: { max: 30 },
+//     },
+//     variables: {
+//         product1: { profit: 5, resource1: 2, resource2: 1 },
+//         product2: { profit: 3, resource1: 1, resource2: 2 },
+//     },
+// };
+
+// const results = solver.Solve(model);
+// console.log("Optimal Solution:", results);
+
+// Example Data
+const crew = {
+    1: { name: "John", maxHours: 8, availableFlights: [101, 102] },
+    2: { name: "Jane", maxHours: 8, availableFlights: [101, 103] },
+    3: { name: "Alex", maxHours: 6, availableFlights: [102, 103] },
+};
+
+const flights = {
+    101: { requiredCrew: 2 },
+    102: { requiredCrew: 1 },
+    103: { requiredCrew: 1 },
+};
+
+// Build Constraints and Variables
+const model = {
+    optimize: "workload", // Minimize workload
+    opType: "min",
+    constraints: {},
+    variables: {},
+};
+
+// Add Constraints for Each Flight
+for (const flightId in flights) {
+    model.constraints[`flight_${flightId}`] = { min: flights[flightId].requiredCrew };
+}
+
+// Add Variables for Each Crew Member
+for (const crewId in crew) {
+    const { maxHours, availableFlights } = crew[crewId];
+
+    // Add crew member's max hours constraint
+    model.constraints[`crew_${crewId}`] = { max: maxHours };
+
+    // Define variables for flights they can attend
+    model.variables[`crew_${crewId}`] = { workload: 1 }; // Objective coefficient
+    availableFlights.forEach((flightId) => {
+        model.variables[`crew_${crewId}`][`flight_${flightId}`] = 1; // Flight participation
+    });
+}
+
+// Solve the Model
+const results = solver.Solve(model);
+
+console.log("Optimal Solution:", results);
+
+
+app.post('/api/schedule/optimize', (req, res) => {
+    const schedule = optimizeSchedule();
+    res.json(schedule);
+});
+
+
+
 
 //api call for login of admins and crew_members
 app.post('/login', async (req, res) => {
@@ -69,13 +148,13 @@ app.post('/login', async (req, res) => {
 
         // Verify password
         if(role==='admin'){
-            if (password!=result.rows[0].password_hash) {
+            if (password!==result.rows[0].password_hash) {
                 return res.status(401).json({ error: 'Invalid credentials.' });
             }
             // Remove sensitive data (e.g., password) before returning the user object
             delete user.password_hash;
         }else if(role==='crew'){
-            if (password!=result.rows[0].password) {
+            if (password!==result.rows[0].password) {
                 return res.status(401).json({ error: 'Invalid credentials.' });
             }
             // Remove sensitive data (e.g., password) before returning the user object
@@ -218,7 +297,7 @@ app.get('/crew-members', async (req, res) => {
     try {
         // Fetch admin's airline
         const adminQuery = `
-            SELECT airline 
+            SELECT airline, city 
             FROM admin 
             WHERE id = $1;
         `;
@@ -229,7 +308,7 @@ app.get('/crew-members', async (req, res) => {
         }
 
         const airline = adminResult.rows[0].airline;
-
+        const city=adminResult.rows[0].city;
         // Query to fetch crew members, their availability, and roles
         const crewQuery = `
             SELECT 
@@ -253,11 +332,11 @@ app.get('/crew-members', async (req, res) => {
             LEFT JOIN 
                 roles r ON cr.role_id = r.id
             WHERE 
-                cm.airline = $1
+                cm.airline = $1 AND cm.city=$2
             ORDER BY 
                 cm.id, ca.date;
         `;
-        const crewResult = await db.query(crewQuery, [airline]);
+        const crewResult = await db.query(crewQuery, [airline,city]);
         res.setHeader('Content-Type', 'application/json'); // Explicitly set Content-Type
         res.status(200).json(crewResult.rows);
         
@@ -321,6 +400,98 @@ app.get('/flights/airline/:airline', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch flight data for the airline.' });
     }
 });
+
+
+//API call to fetch the flights and tasks related data from the database
+app.get('/flight-tasks', async (req, res) => {
+    const adminId = req.query.adminId; // Get the admin's ID from query parameters
+  
+    if (!adminId) {
+      return res.status(400).json({ error: 'Admin ID parameter is required' });
+    }
+  
+    try {
+      // Step 1: Get admin details (city and airline) using adminId
+      const adminResult = await db.query(`
+        SELECT city, airline FROM admin WHERE id = $1
+      `, [adminId]);
+  
+      // If no admin is found, return an error
+      if (adminResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Admin not found' });
+      }
+  
+      const { city, airline } = adminResult.rows[0];
+  
+      // Step 2: Get flight and task details based on the admin's city and airline
+      const result = await db.query(`
+        SELECT 
+            flights.flight_number, 
+            flights.departure_time, 
+            flights.arrival_time, 
+            flights.destination, 
+            flights.origin,
+            tasks.task_name, 
+            tasks.description, 
+            tasks.crew_required,
+            schedules.status
+        FROM 
+            flights
+        JOIN 
+            task_assignments ON flights.id = task_assignments.flight_id
+        JOIN 
+            tasks ON task_assignments.task_id = tasks.id
+        JOIN 
+            schedules ON flights.id = schedules.flight_id
+        WHERE 
+            (flights.origin = $1 OR flights.destination = $1) 
+            AND flights.airline = $2
+            AND schedules.status = 'Pending'
+      `, [city, airline]);
+  
+      // If no data is found
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: 'No pending tasks for flights in this city and airline' });
+      }
+  
+      // Step 3: Group the data by flight_number
+      const groupedFlights = {};
+
+      result.rows.forEach(row => {
+        // If the flight_number is not already in the groupedFlights object, create it
+        if (!groupedFlights[row.flight_number]) {
+          groupedFlights[row.flight_number] = {
+            flight_number: row.flight_number,
+            departure_time: row.departure_time,
+            arrival_time: row.arrival_time,
+            destination: row.destination,
+            origin: row.origin,
+            pending_tasks: []  // Initialize an empty array to hold tasks
+          };
+        }
+
+        // Add the task information to the corresponding flight_number's pending_tasks array
+        groupedFlights[row.flight_number].pending_tasks.push({
+          task_name: row.task_name,
+          description: row.description,
+          crew_required: row.crew_required,
+          status: row.status
+        });
+      });
+
+      // Convert the grouped object back to an array for the response
+      const flightData = Object.values(groupedFlights);
+      res.setHeader('Content-Type', 'application/json');
+
+      // Step 4: Return the grouped data
+      return res.status(200).json(flightData);
+  
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 
 
 

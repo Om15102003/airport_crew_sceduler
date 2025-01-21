@@ -23,7 +23,9 @@ function App() {
             </Route>
             {/* <Route path="/dashboard/:airline" element={<Dashboard />} /> */}
 
-            <Route path="/schedule" element={<Schedules />} />
+            <Route path="/schedule" element={<Schedules />} >
+            <Route path=':adminId' element={<Schedules/>}/>
+            </Route>
             <Route path="/employees" element={<Employee />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/new_flight" element={<NewFlight />} >
