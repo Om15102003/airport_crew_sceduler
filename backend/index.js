@@ -349,10 +349,16 @@ app.get('/crew-members', async (req, res) => {
 
 
 //api call to get all the tasks associated with a particular flight
-app.get('/tasks/flight/:flight_id', async (req, res) => {
-    const { flight_id } = req.params;
-
+app.get('/tasks/flight', async (req, res) => {
+    const  flightNumber  = req.query.flightNumber;
+    if (!flightNumber) {
+        return res.status(400).json({ error: 'flight_number is required' });
+    }
     try {
+        const flight_id_raw=await db.query('SELECT id FROM flights WHERE flight_number=$1',[flightNumber]);
+        const flight_id=flight_id_raw.rows[0].id;
+
+
         // Fetch all tasks associated with the given flight_id
         const taskQuery = `
             SELECT ta.id, ta.flight_id, t.task_name, t.description, ta.crew_required
@@ -431,6 +437,7 @@ app.get('/flight-tasks', async (req, res) => {
             flights.arrival_time, 
             flights.destination, 
             flights.origin,
+            tasks.id,
             tasks.task_name, 
             tasks.description, 
             tasks.crew_required,
@@ -472,6 +479,7 @@ app.get('/flight-tasks', async (req, res) => {
 
         // Add the task information to the corresponding flight_number's pending_tasks array
         groupedFlights[row.flight_number].pending_tasks.push({
+          task_id:row.id,
           task_name: row.task_name,
           description: row.description,
           crew_required: row.crew_required,
@@ -574,6 +582,117 @@ app.post('/notify-crew-tasks', async (req, res) => {
         res.status(500).json({ message: 'Error notifying crew members' });
     }
 });
+
+
+// API to post new tasks 
+app.post('/add-task', async (req, res) => {
+    const { flight_number, task_name, description, crew_required } = req.body;
+  
+    if (!flight_number || !task_name || !description || !crew_required) {
+      return res.status(400).json({ error: 'All task details are required' });
+    }
+  
+    try {
+      // Step 1: Fetch the flight_id using the flight_number
+      const flightResult = await db.query(`
+        SELECT id FROM flights WHERE flight_number = $1
+      `, [flight_number]);
+  
+      // Check if the flight exists
+      if (flightResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Flight not found' });
+      }
+  
+      const flight_id = flightResult.rows[0].id;
+  
+      // Step 2: Insert a new task into the tasks table
+      const taskResult = await db.query(`
+        INSERT INTO tasks (task_name, description, crew_required) 
+        VALUES ($1, $2, $3) 
+        RETURNING id
+      `, [task_name, description, crew_required]);
+  
+      const task_id = taskResult.rows[0].id;
+  
+      // Step 3: Insert a row into the task_assignments table
+      await db.query(`
+        INSERT INTO task_assignments (flight_id, task_id, crew_required) 
+        VALUES ($1, $2, $3)
+      `, [flight_id, task_id, crew_required]);
+  
+      // Return a success message
+      res.status(201).json({ message: 'Task added successfully', task_id });
+  
+    } catch (error) {
+      console.error('Error adding task:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+});
+  
+
+
+//Api to delete a task taking the flight number and the task name
+app.delete('/delete-task', async (req, res) => {
+    const { flight_number, task_name } = req.body;
+  
+    if (!flight_number || !task_name) {
+      return res.status(400).json({ error: 'flight_number and task_name are required' });
+    }
+  
+    try {
+      // Step 1: Get the flight_id using flight_number
+      const flightResult = await db.query(
+        'SELECT id FROM flights WHERE flight_number = $1',
+        [flight_number]
+      );
+  
+      if (flightResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Flight not found' });
+      }
+      const flight_id = flightResult.rows[0].id;
+  
+      // Step 2: Get all task_ids using task_name
+      const taskResult = await db.query(
+        'SELECT id FROM tasks WHERE task_name = $1',
+        [task_name]
+      );
+  
+      if (taskResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Task not found' });
+      }
+  
+      // Step 3: For each task_id, delete from task_assignments
+      for (const task of taskResult.rows) {
+        const task_id = task.id;
+        
+        // Delete from task_assignments
+        await db.query(
+          'DELETE FROM task_assignments WHERE flight_id = $1 AND task_id = $2',
+          [flight_id, task_id]
+        );
+      }
+  
+      // Step 4: Optionally, delete the task from tasks table if no more assignments exist
+      // Check if any other task_assignments for the given task_name exist
+      for (const task of taskResult.rows) {
+        const task_id = task.id;
+        const assignmentCheckResult = await db.query(
+          'SELECT 1 FROM task_assignments WHERE task_id = $1 LIMIT 1',
+          [task_id]
+        );
+  
+        // If no other assignments exist, delete the task from tasks table
+        if (assignmentCheckResult.rows.length === 0) {
+          await db.query('DELETE FROM tasks WHERE id = $1', [task_id]);
+        }
+      }
+  
+      return res.status(200).json({ message: 'Task deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
 
 
 

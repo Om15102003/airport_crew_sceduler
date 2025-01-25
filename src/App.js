@@ -10,6 +10,7 @@ import NewFlight from './pages/NewFlight';
 import Login from './pages/Login';
 import Admin from './pages/Admin';
 import Crew from './pages/Crew';
+import Assign from './pages/Assign';
 import './index.css'
 import './App.css';
 function App() {
@@ -34,6 +35,8 @@ function App() {
             <Route path="/admin" element={<Admin/>}>
               <Route path=':adminId' element={<Admin/>}/>
             </Route>
+            <Route path="/assign/:flightNumber/:adminId" element={<Assign />} />
+            
             <Route path="/crew" element={<Crew />}>
             <Route path=':adminId' element={<Crew/>}/>
             </Route>
