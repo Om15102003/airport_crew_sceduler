@@ -520,20 +520,54 @@ app.get('/recent-activities/:airline_name',async (req,res)=>{
 })
 
 // API to add task assignment for crew members
+// app.post('/assign-tasks', async (req, res) => {
+//     const { crew_member_id, task_id } = req.body;
+    
+//     try {
+//         // Insert task assignments for each crew member
+//         const newAssignments = await db.query(
+//             'INSERT INTO crew_task_assignments (crew_member_id, task_assignment_id, status, notifications) VALUES ($1, $2, $3, $4) RETURNING *',
+//             [crew_member_id, task_id, 'Assigned', false]
+//         );
+        
+//         res.status(201).json({ message: 'Task assignments created successfully!', data: newAssignments.rows });
+//     } catch (error) {
+//         console.error('Error creating task assignments:', error);
+//         res.status(500).json({ message: 'Error creating task assignments' });
+//     }
+// });
+
+
+// API to add or update task assignment for crew members
 app.post('/assign-tasks', async (req, res) => {
     const { crew_member_id, task_id } = req.body;
     
     try {
-        // Insert task assignments for each crew member
-        const newAssignments = await db.query(
-            'INSERT INTO crew_task_assignments (crew_member_id, task_assignment_id, status, notifications) VALUES ($1, $2, $3, $4) RETURNING *',
-            [crew_member_id, task_id, 'Assigned', false]
+        // Check if crew_member_id is already assigned a task
+        const existingAssignment = await db.query(
+            'SELECT * FROM crew_task_assignments WHERE crew_member_id = $1',
+            [crew_member_id]
         );
         
-        res.status(201).json({ message: 'Task assignments created successfully!', data: newAssignments.rows });
+        let response;
+        if (existingAssignment.rows.length > 0) {
+            // Update existing task assignment
+            response = await db.query(
+                'UPDATE crew_task_assignments SET task_assignment_id = $1 WHERE crew_member_id = $2 RETURNING *',
+                [task_id, crew_member_id]
+            );
+        } else {
+            // Insert new task assignment
+            response = await db.query(
+                'INSERT INTO crew_task_assignments (crew_member_id, task_assignment_id, status, notifications) VALUES ($1, $2, $3, $4) RETURNING *',
+                [crew_member_id, task_id, 'Assigned', false]
+            );
+        }
+        
+        res.status(201).json({ message: 'Task assignment updated successfully!', data: response.rows });
     } catch (error) {
-        console.error('Error creating task assignments:', error);
-        res.status(500).json({ message: 'Error creating task assignments' });
+        console.error('Error handling task assignment:', error);
+        res.status(500).json({ message: 'Error handling task assignment' });
     }
 });
 

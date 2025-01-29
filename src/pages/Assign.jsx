@@ -10,23 +10,26 @@ import {
   Trash2
 } from 'lucide-react';
 
+import TaskAssignmentResults  from './TaskAssignmentResults';
+
 const AdminDashboard = () => {
   const { flightNumber, adminId } = useParams();
-  
-  
   const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
   const [crewMembers, setCrewMembers] = useState([]);
+  const [groupedCrewMembers, setGroupedCrewMembers] = useState({});
   const [newTask, setNewTask] = useState({
-    flight_number:flightNumber,
-    id:'',
+    flight_number: flightNumber,
+    id: '',
     task_name: '',
     description: '',
     crew_required: ''
   });
   const [showTaskInput, setShowTaskInput] = useState(false);
+  const [taskAssignments, setTaskAssignments] = useState(null);
+const [showAssignments, setShowAssignments] = useState(false);
 
-useEffect(() => {
+  useEffect(() => {
     fetch(`http://localhost:4000/crew-members?adminId=${adminId}`, {
       method: 'GET',
       headers: {
@@ -42,17 +45,42 @@ useEffect(() => {
       .then((data) => {
         const formattedData = data.map(member => ({
           ...member,
-          start_time: member.start_time.slice(0, 5), // Extract "HH:MM"
-          end_time: member.end_time.slice(0, 5),     // Extract "HH:MM"
+          start_time: member.start_time.slice(0, 5),
+          end_time: member.end_time.slice(0, 5),
         }));
         setCrewMembers(formattedData);
+        
+        const grouped = formattedData.reduce((acc, member) => {
+          const key = member.crew_id;
+          if (!acc[key]) {
+            acc[key] = {
+              crew_id: key,
+              roles: [],
+              name: member.name,
+              available: member.available,
+              shifts: new Set()
+            };
+          }
+          acc[key].roles.push({
+            role_name: member.role_name,
+            role_description: member.role_description
+          });
+          acc[key].shifts.add(`${member.start_time} - ${member.end_time}`);
+          return acc;
+        }, {});
+
+        Object.values(grouped).forEach(member => {
+          member.shifts = Array.from(member.shifts);
+        });
+
+        setGroupedCrewMembers(grouped);
       })
       .catch((err) => {
         console.error('Error fetching crew members:', err);
       });
   }, [adminId]);
-  
-useEffect(() => {
+
+  useEffect(() => {
     fetch(`http://localhost:4000/tasks/flight?flightNumber=${flightNumber}`, {
       method: 'GET',
       headers: {
@@ -66,26 +94,20 @@ useEffect(() => {
         return response.json();
       })
       .then((data) => {
-        // Transform the data
-        console.log(data);
-        
         const transformedTasks = data.tasks.map((task) => ({
           id: task.id,
           flight_id: task.flight_id,
           task_name: task.task_name,
           description: task.description,
           crew_required: task.crew_required,
-          role_name: task.task_name.split(' ')[0], // Derive role_name
+          role_name: task.task_name.split(' ')[0],
         }));
-  
-        setTasks(transformedTasks); // Update state with transformed data
+        setTasks(transformedTasks);
       })
       .catch((err) => {
         console.error('Error fetching tasks:', err);
       });
-  }, [flightNumber]); // Ensure flightNumber is part of the dependency array
-  
-
+  }, [flightNumber]);
 
   const handleBackClick = () => {
     navigate(-1);
@@ -93,35 +115,33 @@ useEffect(() => {
 
   const handleDeleteTask = async (taskId, flightNumber, task_name) => {
     setTasks(tasks.filter(task => task.id !== taskId));
-    //console.log((taskId));
     if (!flightNumber || !task_name) {
-        alert('Flight number and task name are required');
-        return;
+      alert('Flight number and task name are required');
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:4000/delete-task', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          flight_number: flightNumber,
+          task_name: task_name,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete task');
       }
-    
-      try {
-        const response = await fetch('http://localhost:4000/delete-task', {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            flight_number: flightNumber,
-            task_name: task_name,
-          }),
-        });
-    
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to delete task');
-        }
-    
-        const result = await response.json();
-        alert(result.message);
-        
-      } catch (error) {
-        alert('Error deleting task: ' + error.message);
-      }
+
+      const result = await response.json();
+      alert(result.message);
+    } catch (error) {
+      alert('Error deleting task: ' + error.message);
+    }
   };
 
   const handleNewTaskChange = (e) => {
@@ -137,77 +157,141 @@ useEffect(() => {
       alert('Please fill in all task details');
       return;
     }
-  
-    // Transform newTask to the required format
+
     const transformedTask = {
-      flight_number: flightNumber, // Add flight_number
+      flight_number: flightNumber,
       task_name: newTask.task_name,
       description: newTask.description,
       crew_required: newTask.crew_required,
     };
-  
-    const newTaskId = tasks.length + 1; // Generate new ID
-  
+
+    const newTaskId = tasks.length + 1;
+
     try {
       const response = await fetch('http://localhost:4000/add-task', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(transformedTask), // Send transformed data
+        body: JSON.stringify(transformedTask),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to add task');
       }
-      
-      
+
       setTasks([
         ...tasks,
         {
           id: newTaskId,
-          flight_id: flightNumber, // Use flightNumber as flight_id
+          flight_id: flightNumber,
           task_name: newTask.task_name,
           description: newTask.description,
           crew_required: newTask.crew_required,
-          role_name: 'New Task',
+          role_name: newTask.task_name.split(' ')[0],
         },
       ]);
-  
-      // Reset form fields and close input
+
       setNewTask({
         task_name: '',
         description: '',
         crew_required: '',
       });
       setShowTaskInput(false);
-      setShowTaskInput(null);
     } catch (error) {
       alert('Error adding task: ' + error.message);
     }
   };
-  
 
-  const handleConfirmTasks = async () => {
+  const preprocessData = (tasks, crewMembers) => {
+    const taskArray = Array.isArray(tasks) ? tasks : [];
+    const crewArray = Array.isArray(crewMembers) ? crewMembers : [];
+    
+    const formattedTasks = taskArray.map(task => ({
+      id: task.id,
+      flight_id: parseInt(flightNumber),
+      task_name: task.task_name,
+      description: task.description,
+      crew_required: parseInt(task.crew_required),
+      role_name: task.task_name.split(' ')[0]
+    }));
+    
+    const formattedCrewMembers = crewArray.map(crew => ({
+      id: crew.crew_id,
+      available: crew.available === 1 || crew.available === true,
+      start_time: crew.start_time,
+      end_time: crew.end_time,
+      role_name: crew.role_name,
+      role_description: crew.role_description
+    }));
+    
+    return {
+      tasks: formattedTasks,
+      crew_members: formattedCrewMembers
+    };
+  };
+
+  const sendScheduleRequest = async (requestData) => {
     try {
-      const response = await fetch(`http://localhost:4000/assign-tasks?flightNumber=${flightNumber}`, {
+      const response = await fetch('http://127.0.0.1:5000/schedule', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ tasks })
+        body: JSON.stringify(requestData),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to assign tasks');
+        throw new Error(`HTTP error! Status: ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log('AI algorithm response:', data);
+      const result = await response.json();
+      return result;
     } catch (error) {
-      alert(`Error: ${error.message}`);
+      console.error('Error sending schedule request:', error);
+      throw error;
     }
   };
+
+  const handleConfirmTasks = async () => {
+    try {
+      const processedData = preprocessData(tasks, crewMembers);
+      console.log('Processed data:', processedData);
+
+      const response = await sendScheduleRequest(processedData);
+      console.log('Schedule response:', response);
+
+      alert('Tasks scheduled successfully!');
+      setTaskAssignments(response);
+      setShowAssignments(true);
+    } catch (error) {
+      alert(`Failed to schedule tasks: ${error.message}`);
+    }
+  };
+
+
+  // Add this new function to handle saving assignment changes:
+const handleSaveAssignments = async (updatedAssignments) => {
+  try {
+    // Add your API call here to save the updated assignments
+    const response = await fetch('http://localhost:4000/update-assignments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updatedAssignments),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update assignments');
+    }
+
+    setTaskAssignments(updatedAssignments);
+    alert('Assignments updated successfully!');
+  } catch (error) {
+    alert(`Failed to update assignments: ${error.message}`);
+  }
+};
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -236,7 +320,17 @@ useEffect(() => {
         </div>
       </div>
 
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">
+      {showAssignments && taskAssignments && (
+      <TaskAssignmentResults
+        assignments={taskAssignments}
+        tasks={tasks}
+        crewMembers={crewMembers}
+        onSaveChanges={handleSaveAssignments}
+        onClose={() => setShowAssignments(false)}
+      />
+    )}
+
+      <h1 className="text-3xl font-bold text-gray-800 mb-6 text-[40px] font-[500]" style={{ color: '#1976d2' }}>
         Flight {flightNumber} - Pending Tasks
       </h1>
 
@@ -318,21 +412,38 @@ useEffect(() => {
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {crewMembers.map(member => (
-          <div key={member.id} className="bg-white rounded-lg shadow-md p-6">
+        {Object.values(groupedCrewMembers).map((crewMember) => (
+          <div key={crewMember.crew_id} className="bg-white rounded-lg shadow-md p-6">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="text-xl font-semibold text-gray-800">{member.role_name}</h3>
+                <h3 className="text-xl font-semibold text-gray-800">
+                  {crewMember.name || `Crew Member ${crewMember.crew_id}`}
+                </h3>
                 <div className="flex items-center text-sm text-gray-600 mt-1">
                   <Calendar className="w-4 h-4 mr-1" />
-                  <span>{member.start_time} - {member.end_time}</span>
+                  <div className="flex flex-col">
+                    {crewMember.shifts.map((shift, index) => (
+                      <span key={index} className="mb-1">{shift}</span>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <div className={`px-3 py-1 rounded-full text-sm font-medium ${member.available ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                {member.available ? 'Available' : 'Unavailable'}
+              <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                crewMember.available ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+              }`}>
+                {crewMember.available ? 'Available' : 'Unavailable'}
               </div>
             </div>
-            <p className="text-gray-600">{member.role_description}</p>
+            
+            <div className="mt-4">
+              <h4 className="font-medium text-gray-700 mb-2">Roles:</h4>
+              {crewMember.roles.map((role, index) => (
+                <div key={index} className="mb-2 pl-2 border-l-2 border-blue-200">
+                  <p className="font-medium text-gray-800">{role.role_name}</p>
+                  <p className="text-sm text-gray-600">{role.role_description}</p>
+                </div>
+              ))}
+            </div>
           </div>
         ))}
       </div>

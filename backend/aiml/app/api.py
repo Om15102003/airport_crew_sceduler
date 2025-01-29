@@ -1,8 +1,9 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from app.scheduler import schedule_tasks
 
 app = Flask(__name__)
-
+CORS(app)  # Enables CORS for all routes
 @app.route("/schedule", methods=["POST"])
 def create_schedule():
     data = request.json
