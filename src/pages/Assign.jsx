@@ -23,14 +23,14 @@ const AdminDashboard = () => {
     id: '',
     task_name: '',
     description: '',
-    crew_required: ''
+    updated_requirement: ''
   });
   const [showTaskInput, setShowTaskInput] = useState(false);
   const [taskAssignments, setTaskAssignments] = useState(null);
 const [showAssignments, setShowAssignments] = useState(false);
 
   useEffect(() => {
-    fetch(`http://localhost:4000/crew-members?adminId=${adminId}`, {
+    fetch(`http://localhost:4000/crew-members/available?adminId=${adminId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -56,7 +56,7 @@ const [showAssignments, setShowAssignments] = useState(false);
             acc[key] = {
               crew_id: key,
               roles: [],
-              name: member.name,
+              name: member.crew_name,
               available: member.available,
               shifts: new Set()
             };
@@ -74,6 +74,8 @@ const [showAssignments, setShowAssignments] = useState(false);
         });
 
         setGroupedCrewMembers(grouped);
+      
+        
       })
       .catch((err) => {
         console.error('Error fetching crew members:', err);
@@ -99,7 +101,7 @@ const [showAssignments, setShowAssignments] = useState(false);
           flight_id: task.flight_id,
           task_name: task.task_name,
           description: task.description,
-          crew_required: task.crew_required,
+          updated_requirement: task.updated_requirement,
           role_name: task.task_name.split(' ')[0],
         }));
         setTasks(transformedTasks);
@@ -112,6 +114,9 @@ const [showAssignments, setShowAssignments] = useState(false);
   const handleBackClick = () => {
     navigate(-1);
   };
+  
+
+
 
   const handleDeleteTask = async (taskId, flightNumber, task_name) => {
     setTasks(tasks.filter(task => task.id !== taskId));
@@ -153,7 +158,7 @@ const [showAssignments, setShowAssignments] = useState(false);
   };
 
   const handleAddTask = async () => {
-    if (!newTask.task_name || !newTask.description || !newTask.crew_required) {
+    if (!newTask.task_name || !newTask.description || !newTask.updated_requirement) {
       alert('Please fill in all task details');
       return;
     }
@@ -162,7 +167,7 @@ const [showAssignments, setShowAssignments] = useState(false);
       flight_number: flightNumber,
       task_name: newTask.task_name,
       description: newTask.description,
-      crew_required: newTask.crew_required,
+      updated_requirement: newTask.updated_requirement,
     };
 
     const newTaskId = tasks.length + 1;
@@ -187,7 +192,7 @@ const [showAssignments, setShowAssignments] = useState(false);
           flight_id: flightNumber,
           task_name: newTask.task_name,
           description: newTask.description,
-          crew_required: newTask.crew_required,
+          updated_requirement: newTask.updated_requirement,
           role_name: newTask.task_name.split(' ')[0],
         },
       ]);
@@ -195,7 +200,7 @@ const [showAssignments, setShowAssignments] = useState(false);
       setNewTask({
         task_name: '',
         description: '',
-        crew_required: '',
+        updated_requirement: '',
       });
       setShowTaskInput(false);
     } catch (error) {
@@ -212,7 +217,7 @@ const [showAssignments, setShowAssignments] = useState(false);
       flight_id: parseInt(flightNumber),
       task_name: task.task_name,
       description: task.description,
-      crew_required: parseInt(task.crew_required),
+      updated_requirement: parseInt(task.updated_requirement),
       role_name: task.task_name.split(' ')[0]
     }));
     
@@ -253,17 +258,63 @@ const [showAssignments, setShowAssignments] = useState(false);
     }
   };
 
+
+  const prepareTaskAssignmentData = (flightNumber, rawAssignments) => {
+    return {
+        flight_number: flightNumber,
+        assignments: rawAssignments.map(({ crew_member_id, task_assignment_id }) => ({
+            crew_member_id,
+            task_assignment_id
+        }))
+    };
+};
+
   const handleConfirmTasks = async () => {
     try {
+      if(crewMembers.length===0 || tasks.length===0){
+        alert('crew members/tasks must be there')
+        return;
+      }
       const processedData = preprocessData(tasks, crewMembers);
       console.log('Processed data:', processedData);
 
       const response = await sendScheduleRequest(processedData);
       console.log('Schedule response:', response);
 
+      const formattedData = prepareTaskAssignmentData(flightNumber, response);
+      console.log(formattedData);
+      let responseData;
+      await fetch("http://localhost:4000/assign-tasks",{
+        method:'POST',
+        headers:{
+          Accept:'application/form-data',
+          'Content-Type':'application/json',
+        },
+        body:JSON.stringify(formattedData),
+      }).then((response)=>response.json()).then((data)=>responseData=data);
+
       alert('Tasks scheduled successfully!');
       setTaskAssignments(response);
       setShowAssignments(true);
+      console.log(responseData);
+
+      let rspmsg;
+      await fetch("http://localhost:4000/update-crew-requirement",{
+        method:'POST',
+        headers:{
+          Accept:'application/form-data',
+          'Content-Type':'application/json',
+        },
+        body:JSON.stringify(responseData),
+      }).then((response)=>response.json()).then((data)=>{
+        console.log(data);
+        
+        return rspmsg=data;
+      }
+    );
+
+      
+      
     } catch (error) {
       alert(`Failed to schedule tasks: ${error.message}`);
     }
@@ -274,20 +325,40 @@ const [showAssignments, setShowAssignments] = useState(false);
 const handleSaveAssignments = async (updatedAssignments) => {
   try {
     // Add your API call here to save the updated assignments
-    const response = await fetch('http://localhost:4000/update-assignments', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(updatedAssignments),
-    });
+    console.log(updatedAssignments);
+    const formattedData = prepareTaskAssignmentData(flightNumber, updatedAssignments);
+    console.log(formattedData);
 
-    if (!response.ok) {
-      throw new Error('Failed to update assignments');
-    }
+    let responseData;
+      await fetch("http://localhost:4000/assign-tasks",{
+        method:'POST',
+        headers:{
+          Accept:'application/form-data',
+          'Content-Type':'application/json',
+        },
+        body:JSON.stringify(formattedData),
+      }).then((response)=>response.json()).then((data)=>responseData=data);
+
+
+
+
 
     setTaskAssignments(updatedAssignments);
     alert('Assignments updated successfully!');
+
+    
+    await fetch("http://localhost:4000/update-crew-requirement",{
+      method:'POST',
+      headers:{
+        Accept:'application/form-data',
+        'Content-Type':'application/json',
+      },
+      body:JSON.stringify(responseData),
+    }).then((response)=>response.json()).then((data)=>{
+      console.log(data);
+    }
+  );
+
   } catch (error) {
     alert(`Failed to update assignments: ${error.message}`);
   }
@@ -356,8 +427,8 @@ const handleSaveAssignments = async (updatedAssignments) => {
             />
             <input
               type="number"
-              name="crew_required"
-              value={newTask.crew_required}
+              name="updated_requirement"
+              value={newTask.updated_requirement}
               onChange={handleNewTaskChange}
               placeholder="Crew Required"
               className="w-full p-2 border rounded-md"
@@ -395,7 +466,7 @@ const handleSaveAssignments = async (updatedAssignments) => {
                 <h2 className="text-xl font-semibold text-gray-800">{task.task_name}</h2>
                 <div className="flex items-center text-sm text-gray-600 mt-1">
                   <Users className="w-4 h-4 mr-1" />
-                  <span>Crew: {task.crew_required}</span>
+                  <span>Crew: {task.updated_requirement}</span>
                 </div>
               </div>
               <div className="bg-blue-100 p-2 rounded-full">
@@ -417,7 +488,8 @@ const handleSaveAssignments = async (updatedAssignments) => {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-xl font-semibold text-gray-800">
-                  {crewMember.name || `Crew Member ${crewMember.crew_id}`}
+                  {crewMember.name}
+                  
                 </h3>
                 <div className="flex items-center text-sm text-gray-600 mt-1">
                   <Calendar className="w-4 h-4 mr-1" />

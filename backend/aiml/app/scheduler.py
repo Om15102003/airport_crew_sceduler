@@ -46,8 +46,8 @@
 # #     # 3. Task should be assigned to the required number of crew members
 # #     for t in task_ids:
 # #         task = next(task for task in tasks if task["id"] == t)  # Find the task object for the current task ID
-# #         prob += lpSum(assignment[t][c] for c in crew_ids) == task["crew_required"], f"Task_{t}_Crew_Required"
-# #         print(f"Added constraint: Task {t} requires {task['crew_required']} crew members.")
+# #         prob += lpSum(assignment[t][c] for c in crew_ids) == task["updated_requirement"], f"Task_{t}_updated_requirement"
+# #         print(f"Added constraint: Task {t} requires {task['updated_requirement']} crew members.")
 
 # #     # 4. Other constraints such as availability and task duration can also be added
 # #     # (you can include additional constraints as necessary here)
@@ -136,8 +136,8 @@
 #             task_counter[t] = 0
 #         task_counter[t] += 1
 #         task = next(task for task in tasks if task["id"] == t)  # Find the task object for the current task ID
-#         prob += lpSum(assignment[t][c] for c in crew_ids) == task["crew_required"], f"Task_{t}_Crew_Required_{task_counter[t]}"
-#         print(f"Added constraint: Task {t} requires {task['crew_required']} crew members.")
+#         prob += lpSum(assignment[t][c] for c in crew_ids) == task["updated_requirement"], f"Task_{t}_updated_requirement_{task_counter[t]}"
+#         print(f"Added constraint: Task {t} requires {task['updated_requirement']} crew members.")
 
 #     # Solve the problem
 #     prob.solve()
@@ -206,8 +206,8 @@ def schedule_tasks(tasks, crew_members):
     # 3. Task should be assigned to the required number of distinct crew members
     for t in task_ids:
         task = next(task for task in tasks if task["id"] == t)
-        prob += lpSum(assignment[t][c] for c in crew_ids) == task["crew_required"], f"Task_{t}_Crew_Required"
-        print(f"Added constraint: Task {t} requires {task['crew_required']} crew members.")
+        prob += lpSum(assignment[t][c] for c in crew_ids) == task["updated_requirement"], f"Task_{t}_updated_requirement"
+        print(f"Added constraint: Task {t} requires {task['updated_requirement']} crew members.")
 
     # Solve the problem
     prob.solve()

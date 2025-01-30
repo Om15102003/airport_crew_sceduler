@@ -71,6 +71,7 @@ const TaskAssignmentResults = ({ assignments, tasks, crewMembers, onSaveChanges,
 
     if (hasUnavailableCrew) {
       setShowWarning(true);
+      console.log(currentAssignments);
       return;
     }
 
@@ -174,7 +175,7 @@ const TaskAssignmentResults = ({ assignments, tasks, crewMembers, onSaveChanges,
               <div className="flex justify-between mb-4">
                 <h3 className="font-bold">{task.task_name}</h3>
                 <span className="text-gray-500">
-                  Crew: {taskAssignments.length} / {task.crew_required}
+                  Crew: {taskAssignments.length} / {task.updated_requirement}
                 </span>
               </div>
               
@@ -215,7 +216,7 @@ const TaskAssignmentResults = ({ assignments, tasks, crewMembers, onSaveChanges,
                 })}
               </div>
               
-              {isEditing && taskAssignments.length < task.crew_required && (
+              {isEditing && taskAssignments.length < task.updated_requirement && (
                 <div className="mt-4">
                   <div className="p-3 border border-dashed border-gray-300 rounded bg-gray-50">
                     {unassignedCrew.length > 0 ? (
