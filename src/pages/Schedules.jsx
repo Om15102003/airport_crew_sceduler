@@ -35,6 +35,12 @@ const Schedules = () => {
       .then((data) => {
         setFlights(data);
         setLoading(false);
+        if(flights.length===0){
+          return (<div>
+            No flight to schedule
+          </div>)
+        }
+        
       });
   }, [adminId]);
 
@@ -126,7 +132,13 @@ const Schedules = () => {
       </div>
     );
   }
-
+  // if(flights.length===0){
+  //   return (
+  //     <div className="text-center text-red-600">
+  //       No pending flights
+  //     </div>
+  //   )
+  // }
   return (
     <div className="max-w-6xl mx-auto p-6">
       <button
@@ -150,7 +162,7 @@ const Schedules = () => {
       </div>
 
       <div className="grid gap-6">
-        {flights.map((flight) => (
+        {flights.length>0 && flights.map((flight) => (
           <div 
             key={flight.flight_number} 
             className="bg-white rounded-lg shadow-md p-6"
