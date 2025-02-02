@@ -582,76 +582,7 @@ app.get('/recent-activities/:airline_name',async (req,res)=>{
 });
 
 
-// API to add or update task assignments for a flight
-// app.post('/assign-tasks', async (req, res) => {
-//     const { flight_number, assignments } = req.body;
 
-//     if (!flight_number || !assignments || assignments.length === 0) {
-//         return res.status(400).json({ message: "flight_number and assignments array are required" });
-//     }
-
-//     try {
-//         // Check if the flight_number already exists
-//         const existingFlight = await db.query(
-//             'SELECT * FROM crew_task_assignments WHERE flight_number = $1',
-//             [flight_number]
-//         );
-
-//         if (existingFlight.rows.length > 0) {
-//             // Delete all existing task assignments for this flight
-//             await db.query(
-//                 'DELETE FROM crew_task_assignments WHERE flight_number = $1',
-//                 [flight_number]
-//             );
-//         }
-
-
-        
-
-//         // Insert new task assignments
-        
-//         const insertValues = assignments.map(({ crew_member_id, task_assignment_id }) => 
-//             `(${task_assignment_id}, ${crew_member_id}, 'Assigned', false, '${flight_number}')`
-//         ).join(',');
-
-//         const insertQuery = `
-//             INSERT INTO crew_task_assignments (task_assignment_id, crew_member_id, status, notifications, flight_number)
-//             VALUES ${insertValues} RETURNING *;
-//         `;
-
-//         const insertedAssignments = await db.query(insertQuery);
-
-//         //updating the status of crew_members
-//        //const updateStatus=await db.query('UPDATE availablity SET available=$1 WHERE crew_member_id IN $2',[false,assignments.crew_member_id]);
-
-//         // Count unique crew members assigned per task
-//         const countQuery = `
-//             SELECT task_assignment_id, COUNT(DISTINCT crew_member_id) as unique_crew_count
-//             FROM crew_task_assignments
-//             WHERE flight_number = $1
-//             GROUP BY task_assignment_id;
-//         `;
-//         const crewCount = await db.query(countQuery, [flight_number]);
-
-//         // Modify response to match the expected frontend format
-//         const formattedResponse = {
-//             flight_number: flight_number,
-//             assignments: insertedAssignments.rows.map(row => ({
-//                 crew_member_id: row.crew_member_id,
-//                 task_assignment_id: row.task_assignment_id
-//             })),
-//             uniqueCrewCount: crewCount.rows
-//         };
-
-
-        
-//         res.status(201).json(formattedResponse);
-
-//     } catch (error) {
-//         console.error('Error handling task assignment:', error);
-//         res.status(500).json({ message: 'Error handling task assignment' });
-//     }
-// });
 
 
 app.post('/assign-tasks', async (req, res) => {
@@ -726,180 +657,6 @@ app.post('/assign-tasks', async (req, res) => {
     }
 });
 
-
-
-// app.post('/update-crew-requirement', async (req, res) => {
-//     const {flight_number, uniqueCrewCount } = req.body;
-
-//     try {
-//         await db.query('BEGIN'); // Start transaction
-
-//         const updatePromises = uniqueCrewCount.map(async ({ task_assignment_id, unique_crew_count }) => {
-//             // Update crew_required in task_assignments
-//             const updateTaskAssignment = await db.query(
-//                 'UPDATE task_assignments SET updated_requirement = GREATEST(0, crew_required - $1) WHERE id = $2 RETURNING updated_requirement, task_id',
-//                 [unique_crew_count, task_assignment_id]
-//             );
-
-//             if (updateTaskAssignment.rows.length > 0) {
-//                 const { updated_requirement, task_id } = updateTaskAssignment.rows[0];
-
-//                 // Update crew_required in tasks
-//                 await db.query(
-//                     'UPDATE tasks SET updated_requirement = GREATEST(0, crew_required - $1) WHERE id = $2',
-//                     [unique_crew_count, task_id]
-//                 );
-
-//                 // If crew_required becomes 0, delete task_assignment
-//                 // if (updated_requirement === 0) {
-//                 //     await db.query('DELETE FROM task_assignments WHERE id = $1', [task_assignment_id]);
-//                 // }
-//             }
-//         });
-
-//         await Promise.all(updatePromises); // Execute all updates in parallel
-//         await db.query('COMMIT'); // Commit transaction
-
-
-//         const totalTask=await db.query('SELECT * FROM task_assignment WHERE ')
-
-
-//         res.status(200).json({ message: 'Crew requirements updated successfully!' });
-//     } catch (error) {
-//         await db.query('ROLLBACK'); // Rollback transaction on error
-//         console.error('Error updating crew requirements:', error);
-//         res.status(500).json({ message: 'Error updating crew requirements' });
-//     }
-// });
-
-
-
-
-// API to notify crew members about their tasks
-
-// app.post('/update-crew-requirement', async (req, res) => {
-//     const { flight_number, uniqueCrewCount } = req.body;
-
-//     try {
-//         await db.query('BEGIN'); // Start transaction
-
-//         // Step 1: Process crew count updates for task assignments
-//         const updatePromises = uniqueCrewCount.map(async ({ task_assignment_id, unique_crew_count }) => {
-//             // Update crew_required in task_assignments
-//             const updateTaskAssignment = await db.query(
-//                 'UPDATE task_assignments SET updated_requirement = GREATEST(0, crew_required - $1) WHERE id = $2 RETURNING updated_requirement, task_id, flight_id',
-//                 [unique_crew_count, task_assignment_id]
-//             );
-
-//             if (updateTaskAssignment.rows.length > 0) {
-//                 const { updated_requirement, task_id, flight_id } = updateTaskAssignment.rows[0];
-
-//                 // Update crew_required in tasks
-//                 await db.query(
-//                     'UPDATE tasks SET updated_requirement = GREATEST(0, crew_required - $1) WHERE id = $2',
-//                     [unique_crew_count, task_id]
-//                 );
-
-//                 // If crew_required becomes 0, you may want to handle deletion (uncomment if needed)
-//                 // if (updated_requirement === 0) {
-//                 //     await db.query('DELETE FROM task_assignments WHERE id = $1', [task_assignment_id]);
-//                 // }
-                
-//                 // Step 2: After updating task assignments, check if all updated_requirement for the flight_id are zero
-//                 if (updated_requirement === 0) {
-//                     const taskCheckQuery = `
-//                         SELECT COUNT(*) FROM task_assignments
-//                         WHERE flight_id = $1 AND updated_requirement > 0;
-//                     `;
-//                     const taskCheck = await db.query(taskCheckQuery, [flight_id]);
-
-//                     // If all updated_requirement values are zero, update the schedule status
-//                     if (parseInt(taskCheck.rows[0].count) === 0) {
-//                         await db.query(
-//                             'UPDATE schedules SET status = $1 WHERE flight_id = $2',
-//                             ['Confirmed', flight_id]
-//                         );
-//                     }
-//                 }
-//             }
-//         });
-
-//         // Wait for all updates to complete
-//         await Promise.all(updatePromises);
-//         await db.query('COMMIT'); // Commit transaction
-
-//         res.status(200).json({ message: 'Crew requirements updated successfully!' });
-
-//     } catch (error) {
-//         await db.query('ROLLBACK'); // Rollback transaction on error
-//         console.error('Error updating crew requirements:', error);
-//         res.status(500).json({ message: 'Error updating crew requirements' });
-//     }
-// });
-// app.post('/update-crew-requirement', async (req, res) => {
-//     const { flight_number, uniqueCrewCount } = req.body;
-
-//     // Validate request body
-//     // if (!flight_number || !Array.isArray(uniqueCrewCount)) {
-//     //     return res.status(400).json({ message: 'Invalid request body. Ensure flight_number and uniqueCrewCount are provided.' });
-//     // }
-
-//     try {
-//         await db.query('BEGIN'); // Start transaction
-
-//         // Step 1: Process crew count updates for task assignments
-//         const updatePromises = uniqueCrewCount.map(async ({ task_assignment_id, unique_crew_count }) => {
-//             // Validate task_assignment_id and unique_crew_count
-//             if (!task_assignment_id || typeof unique_crew_count !== 'number') {
-//                 throw new Error('Invalid task_assignment_id or unique_crew_count');
-//             }
-
-//             // Update crew_required in task_assignments
-//             const updateTaskAssignment = await db.query(
-//                 'UPDATE task_assignments SET updated_requirement = GREATEST(0, crew_required - $1) WHERE id = $2 RETURNING updated_requirement, task_id, flight_id',
-//                 [unique_crew_count, task_assignment_id]
-//             );
-
-//             if (updateTaskAssignment.rows.length > 0) {
-//                 const { updated_requirement, task_id, flight_id } = updateTaskAssignment.rows[0];
-
-//                 // Update crew_required in tasks
-//                 await db.query(
-//                     'UPDATE tasks SET updated_requirement = GREATEST(0, crew_required - $1) WHERE id = $2',
-//                     [unique_crew_count, task_id]
-//                 );
-
-//                 // Step 2: After updating task assignments, check if all updated_requirement for the flight_id are zero
-//                 if (updated_requirement === 0) {
-//                     const taskCheckQuery = `
-//                         SELECT COUNT(*) FROM task_assignments
-//                         WHERE flight_id = $1 AND updated_requirement > 0;
-//                     `;
-//                     const taskCheck = await db.query(taskCheckQuery, [flight_id]);
-
-//                     // If all updated_requirement values are zero, update the schedule status
-//                     if (parseInt(taskCheck.rows[0].count) === 0) {
-//                         await db.query(
-//                             'UPDATE schedules SET status = $1 WHERE flight_id = $2',
-//                             ['Confirmed', flight_id]
-//                         );
-//                     }
-//                 }
-//             }
-//         });
-
-//         // Wait for all updates to complete
-//         await Promise.all(updatePromises);
-//         await db.query('COMMIT'); // Commit transaction
-
-//         res.status(200).json({ message: 'Crew requirements updated successfully!' });
-
-//     } catch (error) {
-//         await db.query('ROLLBACK'); // Rollback transaction on error
-//         console.error('Error updating crew requirements:', error);
-//         res.status(500).json({ message: 'Error updating crew requirements', error: error.message });
-//     }
-// });
 app.post('/update-crew-requirement', async (req, res) => {
     console.log('Request Body:', req.body); // Log the request body
     const { flight_number, uniqueCrewCount } = req.body;
@@ -1044,7 +801,8 @@ app.post('/add-task', async (req, res) => {
       `, [task_name, description, updated_requirement, updated_requirement]);
   
       const task_id = taskResult.rows[0].id;
-  
+        console.log(task_id);
+        
       // Step 3: Insert a row into the task_assignments table
       await db.query(`
         INSERT INTO task_assignments (flight_id, task_id, crew_required, updated_requirement) 
@@ -1127,9 +885,180 @@ app.delete('/delete-task', async (req, res) => {
 
 
 
+//api to get crew details for the crew endpoint
+  app.get('/about-crew', async (req, res) => {
+    const crewId = req.query.crewId;
+    
+    if (!crewId) {
+        return res.status(400).json({ error: 'Crew ID is required.' });
+    }
+
+    try {
+        // Query to get crew member details along with their roles
+        const query = `
+            SELECT 
+                cm.id,
+                cm.name,
+                cm.email,
+                cm.phone_number,
+                cm.status,
+                cm.airline,
+                cm.city,
+                json_agg(
+                    json_build_object(
+                        'role_id', r.id,
+                        'role_name', r.role_name,
+                        'description', r.description
+                    )
+                ) as roles
+            FROM crew_members cm
+            LEFT JOIN crew_roles cr ON cm.id = cr.crew_member_id
+            LEFT JOIN roles r ON cr.role_id = r.id
+            WHERE cm.id = $1
+            GROUP BY cm.id, cm.name, cm.email, cm.phone_number, cm.status, cm.airline, cm.city;
+        `;
+
+        // Fetch crew member data
+        const result = await db.query(query, [crewId]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Crew member not found.' });
+        }
+
+        const crewMember = result.rows[0];
+
+        // Handle case where crew member has no roles
+        if (crewMember.roles[0] === null) {
+            crewMember.roles = [];
+        }
+
+        res.status(200).json({
+            success: true,
+            crewMember,
+        });
+    } catch (error) {
+        console.error('Error fetching crew member:', error);
+        res.status(500).json({ error: 'Failed to fetch crew member details.' });
+    }
+});
+
+
+
+app.get('/crew-work', async (req, res) => {
+    const crewId = req.query.crewId;
+
+    if (!crewId) {
+        return res.status(400).json({ error: 'Crew ID is required.' });
+    }
+
+    try {
+        // Query to get tasks assigned to the crew member
+        const query = `
+            SELECT 
+                t.id AS task_id,
+                t.task_name,
+                t.description,
+                f.flight_number
+            FROM crew_task_assignments cta
+            JOIN task_assignments ta ON cta.task_assignment_id = ta.id
+            JOIN tasks t ON ta.task_id = t.id
+            JOIN flights f ON ta.flight_id = f.id
+            WHERE cta.crew_member_id = $1;
+        `;
+
+        // Execute the query
+        const result = await db.query(query, [crewId]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'No tasks found for this crew member.' });
+        }
+
+        res.status(200).json({
+            success: true,
+            tasks: result.rows,
+        });
+    } catch (error) {
+        console.error('Error fetching crew member tasks:', error);
+        res.status(500).json({ error: 'Failed to fetch crew member tasks.' });
+    }
+});
+
+
+app.delete('/remove-crew-task', async (req, res) => {
+    const {  crewId } = req.body;
+
+    if ( !crewId) {
+        return res.status(400).json({ error: 'Crew ID are required.' });
+    }
+
+    try {
+        // Start transaction
+        await db.query('BEGIN');
+
+        // Delete the crew task assignment
+        const deleteQuery = `
+            DELETE FROM crew_task_assignments 
+            WHERE crew_member_id = $1
+            RETURNING crew_member_id;
+        `;
+        const deleteResult = await db.query(deleteQuery, [crewId]);
+
+        if (deleteResult.rowCount === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ error: 'Task assignment not found.' });
+        }
+
+        // Get current timestamp
+        const now = new Date();
+        now.setHours(now.getHours() + 1); // current_time + 1 hour
+        const currentDate = now.toISOString().split('T')[0]; // Format YYYY-MM-DD
+        const currentTime = now.toTimeString().split(' ')[0]; // Format HH:MM:SS
+
+        // Determine start_time and date
+        let startTime, updatedDate;
+        if (now.getHours() >= 20) {
+            startTime = '09:00:00';
+            now.setDate(now.getDate() + 1);
+            updatedDate = now.toISOString().split('T')[0];
+        } else {
+            startTime = currentTime;
+            updatedDate = currentDate;
+        }
+
+        const endTime = '20:00:00';
+        const available = true;
+
+        // Update the crew member's availability
+        const updateQuery = `
+            UPDATE availability
+            SET date = $1, available = $2, start_time = $3, end_time = $4
+            WHERE crew_member_id = $5;
+        `;
+        await db.query(updateQuery, [updatedDate, available, startTime, endTime, crewId]);
+
+        // Commit transaction
+        await db.query('COMMIT');
+
+        res.status(200).json({
+            success: true,
+            message: 'Task assignment deleted, and crew member availability updated.',
+        });
+    } catch (error) {
+        await db.query('ROLLBACK');
+        console.error('Error deleting task and updating crew:', error);
+        res.status(500).json({ error: 'Failed to update crew member data.' });
+    }
+});
+
+
+
 app.get("/",(req,res)=>{
     res.send("Express app is running")
 })
+
+
+
+
 
 
 app.listen(port,(error)=>{

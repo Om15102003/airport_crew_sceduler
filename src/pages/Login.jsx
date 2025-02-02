@@ -34,7 +34,12 @@ const Login = () => {
     
     if(responseData.success){
         localStorage.setItem('auth-token',responseData.token);
-        window.location.replace(`/${formData.role}/${responseData.user.id}`);
+        if(formData.role==='admin'){
+          window.location.replace(`/${formData.role}/${responseData.user.id}`);
+        }
+        else{
+          window.location.replace(`/about${formData.role}/${responseData.user.id}`);
+        }
     }
     else{
         

@@ -11,6 +11,8 @@ import Login from './pages/Login';
 import Admin from './pages/Admin';
 import Crew from './pages/Crew';
 import Assign from './pages/Assign';
+import Work from './pages/Work';
+import AboutCrew from './pages/About_Crew';
 import './index.css'
 import './App.css';
 function App() {
@@ -39,6 +41,12 @@ function App() {
             
             <Route path="/crew" element={<Crew />}>
             <Route path=':adminId' element={<Crew/>}/>
+            </Route>
+            <Route path="/aboutcrew" element={<AboutCrew />}>
+            <Route path=':crewId' element={<AboutCrew/>}/>
+            </Route>
+            <Route path="/work" element={<Work />}>
+            <Route path=':crewId' element={<Work/>}/>
             </Route>
           </Routes>
       </BrowserRouter>
