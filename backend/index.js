@@ -9,11 +9,9 @@ import env from "dotenv";
 import cors from "cors";
 import express from "express";
 import jwt from "jsonwebtoken";
-//import lpsolve from "linear-problem-solver";
-// const glpk = require('glpk.js');
-//const solver = require("javascript-lp-solver");
+
 import solver from "javascript-lp-solver"
-//import glpk from "glpk.js";
+
 env.config();
 
 
@@ -34,77 +32,89 @@ const db = new pg.Client({
     port: process.env.PG_PORT,
   });
 db.connect();
+//api to enter a new admin
+app.post("/admin/signup", async(req,res)=>{
+    const {name, email, password_hash, airline, city}=req.body;
+    if(!name||!email||!password_hash||!airline||!city){
+        return res.status(400).json({error: 'Name, email, password,airline and city are required.'});
+    }
+    try{
+        const query=`INSERT INTO admin(name, email, password_hash, airline, city) VALUES ($1,$2,$3,$4,$5)`;
+        await db.query(query,[name,email,password_hash,airline,city]);
+        res.status(200).json({
+            success:true,
+            message:"Sign up successful"
+        });
+    }catch(err){
+        console.error('Error during signing up:',err);
+        res.status(500).json({error:'Failed to sign up'});
+    }
+})
 
 
 
+// Crew Signup Route
+app.post("/crew/signup", async (req, res) => {
+    try {
+        const { name, email, phone_number, password, airline, city, roles } = req.body;
+        
+        if (!name || !email || !phone_number || !password || !airline || !city || !roles || roles.length === 0) {
+            return res.status(400).json({ error: "All fields including roles are required" });
+        }
 
+        // Hash the password before storing it
+        //const hashedPassword = await bcrypt.hash(password, 10);
+        
+        // Insert into crew_members with hire_date as current date and status as 'Active'
+        const crewMemberResult = await db.query(
+            `INSERT INTO crew_members (name, email, phone_number, hire_date, status, password, airline, city) 
+             VALUES ($1, $2, $3, CURRENT_DATE, 'Active', $4, $5, $6) RETURNING id`,
+            [name, email, phone_number, password, airline, city]
+        );
 
-// const model = {
-//     optimize: "profit",
-//     opType: "max",
-//     constraints: {
-//         resource1: { max: 20 },
-//         resource2: { max: 30 },
-//     },
-//     variables: {
-//         product1: { profit: 5, resource1: 2, resource2: 1 },
-//         product2: { profit: 3, resource1: 1, resource2: 2 },
-//     },
-// };
+        const crewMemberId = crewMemberResult.rows[0].id;
 
-// const results = solver.Solve(model);
-// console.log("Optimal Solution:", results);
+        // Process roles
+        for (let role of roles) {
+            let {roleName, description}=role
+            let roleResult = await db.query("SELECT id FROM roles WHERE role_name = $1", [roleName]);
 
-// Example Data
-const crew = {
-    1: { name: "John", maxHours: 8, availableFlights: [101, 102] },
-    2: { name: "Jane", maxHours: 8, availableFlights: [101, 103] },
-    3: { name: "Alex", maxHours: 6, availableFlights: [102, 103] },
-};
+            let roleId;
+            if (roleResult.rows.length > 0) {
+                // Role exists, use the existing id
+                roleId = roleResult.rows[0].id;
+            } else {
+                // Role does not exist, insert it and retrieve the id
+                const newRole = await db.query(
+                    "INSERT INTO roles (role_name, description) VALUES ($1, $2) RETURNING id",
+                    [roleName,description]
+                );
+                roleId = newRole.rows[0].id;
+            }
 
-const flights = {
-    101: { requiredCrew: 2 },
-    102: { requiredCrew: 1 },
-    103: { requiredCrew: 1 },
-};
+            // Insert into crew_roles table
+            await db.query(
+                "INSERT INTO crew_roles (crew_member_id, role_id) VALUES ($1, $2)",
+                [crewMemberId, roleId]
+            );
+        }
 
-// Build Constraints and Variables
-const model = {
-    optimize: "workload", // Minimize workload
-    opType: "min",
-    constraints: {},
-    variables: {},
-};
+        // Insert availability for the crew member
+        await db.query(
+            `INSERT INTO availability (crew_member_id, date, available, start_time, end_time)
+             VALUES ($1, CURRENT_DATE, TRUE, '08:00:00', '16:00:00')`,
+            [crewMemberId]
+        );
 
-// Add Constraints for Each Flight
-for (const flightId in flights) {
-    model.constraints[`flight_${flightId}`] = { min: flights[flightId].requiredCrew };
-}
-
-// Add Variables for Each Crew Member
-for (const crewId in crew) {
-    const { maxHours, availableFlights } = crew[crewId];
-
-    // Add crew member's max hours constraint
-    model.constraints[`crew_${crewId}`] = { max: maxHours };
-
-    // Define variables for flights they can attend
-    model.variables[`crew_${crewId}`] = { workload: 1 }; // Objective coefficient
-    availableFlights.forEach((flightId) => {
-        model.variables[`crew_${crewId}`][`flight_${flightId}`] = 1; // Flight participation
-    });
-}
-
-// Solve the Model
-const results = solver.Solve(model);
-
-console.log("Optimal Solution:", results);
-
-
-app.post('/api/schedule/optimize', (req, res) => {
-    const schedule = optimizeSchedule();
-    res.json(schedule);
+        res.status(201).json({ message: "Crew member registered successfully", crew_member_id: crewMemberId });
+    } catch (error) {
+        console.error("Error in crew signup:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
+
+
+
 
 
 
@@ -279,6 +289,14 @@ app.post('/flights',async(req,res)=>{
         const flightId=flightResult.rows[0].id;
         const scheduleInsertQuery=`INSERT INTO schedules (flight_id,schedule_date,status) VALUES ($1,$2,'Pending')`;
         await db.query(scheduleInsertQuery,[flightId,schedule_date]);
+        const taskQuery=`INSERT INTO tasks(task_name, description,crew_required, updated_requirement) VALUES ($1,$2,$3,$4) RETURNING id`;
+        const task1=await db.query(taskQuery,["Baggage Handling", "Loads and unloads the baggages of the passenger into the plane",2,2]);
+        const task2=await db.query(taskQuery,["Aircraft Maintenance", "Checks the plane's engine if it is fit for the next take-off",3,3]);
+        const task1Id=task1.rows[0].id;
+        const task2Id=task2.rows[0].id;
+        const taskAssign=`INSERT INTO task_assignments (flight_id, task_id, crew_required, updated_requirement) VALUES ($1,$2,$3,$4)`;
+        await db.query(taskAssign,[flightId, task1Id,2,2]);
+        await db.query(taskAssign,[flightId, task2Id,3,3]);
         res.status(201).json({ message: 'Flight and schedule added successfully!'});
     }catch(error){
         console.error('Error adding flight and schedule:',error);
@@ -517,7 +535,12 @@ app.get('/flight-tasks', async (req, res) => {
             AND flights.airline = $2
             AND schedules.status = 'Pending'
       `, [city, airline]);
-  
+      console.log(city);
+      console.log(airline);
+      
+      
+        console.log(result.rows);
+        
       // If no data is found
       if (result.rows.length === 0) {
         return res.status(404).json({ message: 'No pending tasks for flights in this city and airline' });
@@ -547,12 +570,14 @@ app.get('/flight-tasks', async (req, res) => {
           crew_required: row.crew_required,
           status: row.status
         });
+       
+        
       });
 
       // Convert the grouped object back to an array for the response
       const flightData = Object.values(groupedFlights);
       res.setHeader('Content-Type', 'application/json');
-
+      console.log(flightData);
       // Step 4: Return the grouped data
       return res.status(200).json(flightData);
   

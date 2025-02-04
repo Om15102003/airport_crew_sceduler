@@ -238,6 +238,8 @@ const [showAssignments, setShowAssignments] = useState(false);
   };
 
   const sendScheduleRequest = async (requestData) => {
+    console.log(requestData);
+    
     try {
       const response = await fetch('http://127.0.0.1:5000/schedule', {
         method: 'POST',

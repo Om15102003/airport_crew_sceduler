@@ -1,6 +1,5 @@
 import React  from 'react';
 import { BrowserRouter,Route,Routes } from 'react-router-dom';
-//import { ThemeProvider, createTheme } from '@mui/material';
 import Navbar from './components/Navbar/Navbar';
 import Dashboard from './pages/Dashboard';
 import Schedules from './pages/Schedules';
@@ -13,6 +12,7 @@ import Crew from './pages/Crew';
 import Assign from './pages/Assign';
 import Work from './pages/Work';
 import AboutCrew from './pages/About_Crew';
+import Signup from './pages/Signup';
 import './index.css'
 import './App.css';
 function App() {
@@ -20,6 +20,7 @@ function App() {
     <div>
       <BrowserRouter> 
           <Routes>
+            <Route path='/signup' element={<Signup/>}/>
             <Route path="/" element={<Login />} />
             <Route path="/dashboard" element={<Dashboard />}>
             <Route path=':airline' element={<Dashboard/>}/>
