@@ -508,7 +508,10 @@ app.get('/flight-tasks', async (req, res) => {
       }
   
       const { city, airline } = adminResult.rows[0];
-  
+      console.log(city);
+      console.log(airline);
+      
+      
       // Step 2: Get flight and task details based on the admin's city and airline
       const result = await db.query(`
         SELECT 
@@ -520,7 +523,7 @@ app.get('/flight-tasks', async (req, res) => {
             tasks.id,
             tasks.task_name, 
             tasks.description, 
-            tasks.crew_required,
+            task_assignments.updated_requirement,
             schedules.status
         FROM 
             flights
@@ -534,6 +537,7 @@ app.get('/flight-tasks', async (req, res) => {
             (flights.origin = $1 OR flights.destination = $1) 
             AND flights.airline = $2
             AND schedules.status = 'Pending'
+            AND task_assignments.updated_requirement>0
       `, [city, airline]);
       console.log(city);
       console.log(airline);
@@ -567,7 +571,7 @@ app.get('/flight-tasks', async (req, res) => {
           task_id:row.id,
           task_name: row.task_name,
           description: row.description,
-          crew_required: row.crew_required,
+          crew_required: row.updated_requirement,
           status: row.status
         });
        
@@ -612,7 +616,7 @@ app.get('/recent-activities/:airline_name',async (req,res)=>{
 
 app.post('/assign-tasks', async (req, res) => {
     const { flight_number, assignments } = req.body;
-
+    
     if (!flight_number || !assignments || assignments.length === 0) {
         return res.status(400).json({ message: "flight_number and assignments array are required" });
     }
@@ -715,7 +719,7 @@ app.post('/update-crew-requirement', async (req, res) => {
 
                 // Update crew_required in tasks
                 await db.query(
-                    'UPDATE tasks SET updated_requirement = GREATEST(0, crew_required - $1) WHERE id = $2',
+                    'UPDATE tasks SET updated_requirement = GREATEST(-1, crew_required - $1) WHERE id = $2',
                     [unique_crew_count, task_id]
                 );
 

@@ -77,10 +77,25 @@ const Crew = () => {
   // Get unique roles count across all crew members
   const uniqueRoles = new Set(crewMembers.map(crew => crew.role_name)).size;
 
-  // Get available today count
-  const availableToday = crewMembers.filter(crew => 
-    crew.availability_date === "2025-01-21"
-  ).length;
+  // // Get available today count
+  // const availableToday = crewMembers.filter(crew => 
+  //   crew.availability_date === "2025-01-21"
+  // ).length;
+
+ // Get today's date in IST (YYYY-MM-DD format)
+const todayIST = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+console.log("Today's Date in IST:", todayIST);
+
+const availableToday = crewMembers.filter(crew => {
+    // Convert crew.availability_date from UTC to IST and extract YYYY-MM-DD
+    const crewDateIST = new Date(crew.availability_date).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+    return crewDateIST === todayIST;
+}).length;
+
+console.log("Available Crew Members Today:", availableToday);
+
 
   return (
     <div className="min-h-screen bg-gray-50">
